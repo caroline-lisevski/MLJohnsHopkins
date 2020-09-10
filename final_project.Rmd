@@ -1,0 +1,100 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Caroline Lisevski"
+date: "9/10/2020"
+output: html_document
+---
+
+## Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: 
+- exactly according to the specification (Class A), 
+- throwing the elbows to the front (Class B), 
+- lifting the dumbbell only halfway (Class C), 
+- lowering the dumbbell only halfway (Class D) 
+- throwing the hips to the front (Class E).
+
+The goal of this project will be to use data from accelerometers on the belt, forearm, arm, and dumbell and predict how the individual is performing the exercise. The data downloaded and more information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har.
+
+
+## Exploratory Data Analysis
+
+First we are going to load the training and testing files:
+
+```{r pressure, echo=FALSE}
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(corrplot)
+train.data <- read.csv("pml-training.csv", na.strings = c("NA", "#DIV/0!", ""))
+test.data <- read.csv("pml-testing.csv", na.strings = c("NA", "#DIV/0!", ""))
+dim(train.data)
+dim(test.data)
+```
+
+The training file has 19622 observations and 160 variables and the test file has 20 observations and 160 variables.
+
+```{r}
+names(train.data)
+```
+
+We will drop the first and third to seventh columns of the data sets because they are not useful for predictions:
+
+```{r}
+train.data <- train.data[,-c(1,3:7)]
+test.data <- test.data[,-c(1,3:7)]
+```
+
+Taking just the complete cases on data sets:
+
+```{r}
+compl <- complete.cases(t(train.data)) & complete.cases(t(test.data))
+train.data <- train.data[,compl]
+test.data <- test.data[,compl]
+```
+
+Let's split `train.data` for training and testing data sets. We will keep 70% of the data in training `t1.data` set and 30% in `t2.data` set.
+
+```{r}
+set.seed(1986)
+index <- createDataPartition(train.data$classe, p = 0.7, list = FALSE)
+t1.data <- train.data[index,]
+t2.data <- train.data[-index,]
+```
+
+## Modeling
+
+Now we are going to fit three different models in the data and we will decide which one fits best looking for the accuracy. The models are: random forest `rf` and latent Dirichlet allocation `lda`. The gradient boosting machine `gbm` was not included in this project because it took a long time to train the model.
+
+```{r, cache=TRUE}
+model.rf <- train(classe ~ ., data = t1.data, method="rf", ntree=10)
+model.lda <- train(classe ~., data = t1.data, method = "lda")
+```
+
+Now we are going to use this three models to predict using the cross-validation data set. We are going to analyze the accuracy of the model through confusion matrix.
+
+```{r}
+#predictions
+pred.rf <- predict(model.rf, t2.data)
+pred.lda <- predict(model.lda, t2.data)
+#confusion matrix
+confusionMatrix(table(pred.rf, t2.data$classe))
+confusionMatrix(table(pred.lda, t2.data$classe))
+```
+
+We can see the model random forest `rf` is the one with higher accuracy, with 98.6%.
+
+## Prediction
+
+Let's predict the `classe` result in `test.data` data set applying the `model.rf`, the one with higher accuracy:
+
+```{r}
+pred.val <- predict(model.rf, test.data)
+pred.val
+```
+
+
+
